@@ -10,10 +10,12 @@ import {
   Layers,
   Droplets,
   Route,
-  BookOpen
+  BookOpen,
+  Compass
 } from 'lucide-react';
 import { formatPrintedWithUnit, formatCroresPrecise } from '../utils/formatters';
 import { dataProvider } from '../services/dataProvider';
+import { PMC_MAP_PROJECTS } from '../data/puneMapData';
 
 interface QuickSearchModalProps {
   isOpen: boolean;
@@ -119,9 +121,21 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
       )
     : [];
 
+  const mapProjects = q
+    ? PMC_MAP_PROJECTS.filter(
+        (mp) =>
+          mp.projectName.toLowerCase().includes(q) ||
+          mp.category.toLowerCase().includes(q) ||
+          mp.department.toLowerCase().includes(q) ||
+          mp.locationSummary.toLowerCase().includes(q) ||
+          mp.adminWardGeoNames.some((w) => w.toLowerCase().includes(q))
+      )
+    : [];
+
   const totalMatches =
     records.length +
     projects.length +
+    mapProjects.length +
     departments.length +
     wards.length +
     prabhags.length +
@@ -204,6 +218,40 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({
                           {proj.completionStatus}
                         </span>
                       </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {mapProjects.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-[11px] font-semibold text-[#0E7C74] block px-1">
+                    Interactive Ward Map Projects ({mapProjects.length})
+                  </span>
+                  {mapProjects.slice(0, 4).map((mp) => (
+                    <button
+                      type="button"
+                      key={mp.projectId}
+                      onClick={() => {
+                        if (onNavigateTab) onNavigateTab('explore-pune');
+                        onClose();
+                      }}
+                      className="w-full text-left p-2.5 bg-white hover:bg-[#FAF8F3] border border-[#E5E0D5] rounded-[6px] cursor-pointer transition-colors flex items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Compass className="w-3.5 h-3.5 text-[#0E7C74] shrink-0" />
+                        <div className="min-w-0">
+                          <span className="text-xs font-semibold text-[#1C2422] block truncate">
+                            {mp.projectName}
+                          </span>
+                          <span className="text-[11px] text-[#5A6560] block truncate">
+                            {mp.locationSummary} · {mp.status}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-mono text-[#0E7C74] shrink-0">
+                        {mp.wardScope === 'City-Wide' ? 'City-Wide' : 'Ward Map'}
+                      </span>
                     </button>
                   ))}
                 </div>

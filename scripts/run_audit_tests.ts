@@ -42,6 +42,16 @@ import {
   getPathForPage,
   resolvePageFromPathname
 } from '../src/utils/navigation';
+import {
+  PMC_ADMIN_WARD_GEO_META,
+  PMC_INITIAL_DEPARTMENT_BUDGETS,
+  PMC_MAP_PROJECTS,
+  computeAreaStats,
+  filterMapProjects,
+  getProjectsForArea
+} from '../src/data/puneMapData';
+import { getMapBootstrapPayload } from '../server/pmcDatabase.ts';
+import { parseUploadedBuffer } from '../server/pmcIngestion.ts';
 
 interface TestResult {
   name: string;
@@ -397,12 +407,14 @@ const aliasesOk =
   resolvePageFromPathname('/') === 'home' &&
   resolvePageFromPathname('/overview') === 'finances' &&
   resolvePageFromPathname('/spending') === 'records' &&
-  resolvePageFromPathname('/wards') === 'wards';
+  resolvePageFromPathname('/wards') === 'wards' &&
+  resolvePageFromPathname('/explore/pune-map') === 'explore-pune' &&
+  resolvePageFromPathname('/pune-map') === 'explore-pune';
 
 assert(
   '15. Header Dropdown Grouping, Direct URLs & Breadcrumbs',
   NAV_GROUPS.length === 4 &&
-    allNavItems.length === 20 &&
+    allNavItems.length === 21 &&
     routeRoundTripsOk &&
     aliasesOk,
   `4 dropdown menus covering all ${allNavItems.length} pages, direct URL round-trip routing, aliases, and breadcrumbs verified.`
@@ -465,12 +477,126 @@ assert(
   'Loni Kalbhor administrative profile, Census 2011 demographics, water, roads, facilities, projects, finance and sources verified separate from PMC.'
 );
 
-console.log('\n=================================================================');
-const passedCount = results.filter((r) => r.passed).length;
-const totalCount = results.length;
-console.log(`TOTAL AUDIT TEST SUITE: ${passedCount}/${totalCount} TESTS PASSED.`);
-if (passedCount === totalCount) {
-  console.log('🎉 ALL AUDIT & RECONCILIATION ASSERTIONS CONFIRMED.');
-} else {
-  process.exit(1);
+// 18. Explore Pune Interactive Map GeoJSON & Zero-Fabrication Verification
+const adminGeoPath = path.resolve(process.cwd(), 'public/data/pmc-admin-wards-2017.geojson');
+const prabhagGeoPath = path.resolve(process.cwd(), 'public/data/pmc-prabhags-2022.geojson');
+const adminGeo = JSON.parse(fs.readFileSync(adminGeoPath, 'utf8')) as GeoJSON.FeatureCollection;
+const prabhagGeo = JSON.parse(fs.readFileSync(prabhagGeoPath, 'utf8')) as GeoJSON.FeatureCollection;
+const adminFeatureNames = new Set(
+  adminGeo.features.map((f) => String((f.properties as Record<string, unknown>)?.name ?? ''))
+);
+const metaMatchesGeo =
+  PMC_ADMIN_WARD_GEO_META.length === 15 &&
+  PMC_ADMIN_WARD_GEO_META.every((m) => adminFeatureNames.has(m.geoFeatureName));
+const gholeProjects = getProjectsForArea(PMC_MAP_PROJECTS, 'admin-wards', 'Admin Ward 02 Ghole Road');
+const tilakProjects = getProjectsForArea(PMC_MAP_PROJECTS, 'admin-wards', 'Admin Ward 09 Tilak Road');
+const tilakStats = computeAreaStats(tilakProjects);
+const noFabricatedActuals = PMC_MAP_PROJECTS.every(
+  (p) => p.actualExpenditureCrores === null
+);
+const geocodedMarkers = PMC_MAP_PROJECTS.filter(
+  (p) =>
+    p.latitude !== null &&
+    p.longitude !== null &&
+    p.latitude >= 18.4 &&
+    p.latitude <= 18.65 &&
+    p.longitude >= 73.7 &&
+    p.longitude <= 74.02
+);
+const sinhagadCompleted = PMC_MAP_PROJECTS.find(
+  (p) => p.projectCode === 'PMC-RD-SINHAGAD'
+);
+const pmcOnlyMapProjects = PMC_MAP_PROJECTS.every(
+  (p) =>
+    !/\b(pcmc|pimpri|mumbai|bmc|jaipur|jmc)\b/i.test(
+      `${p.projectName} ${p.officialName} ${p.locationSummary}`
+    ) && p.sourceUrl.startsWith('https://')
+);
+
+const all15WardsHaveCostedProjects = PMC_ADMIN_WARD_GEO_META.every((w) => {
+  const projs = getProjectsForArea(PMC_MAP_PROJECTS, 'admin-wards', w.geoFeatureName);
+  const stats = computeAreaStats(projs);
+  return projs.length >= 1 && stats.totalEstimatedCostCrores !== null;
+});
+
+assert(
+  '18. Explore Pune Map GeoJSON Boundaries & Zero-Fabrication Checks',
+  adminGeo.features.length === 15 &&
+    prabhagGeo.features.length === 58 &&
+    metaMatchesGeo &&
+    gholeProjects.length >= 2 &&
+    tilakProjects.length >= 2 &&
+    tilakStats.totalEstimatedCostCrores !== null &&
+    tilakStats.totalActualExpenditureCrores === null &&
+    noFabricatedActuals &&
+    geocodedMarkers.length >= 23 &&
+    all15WardsHaveCostedProjects &&
+    sinhagadCompleted?.status === 'Completed' &&
+    sinhagadCompleted?.physicalProgressPercent === 100 &&
+    pmcOnlyMapProjects,
+  `Verified all ${adminGeo.features.length} PMC Admin Wards have costed projects, ${prabhagGeo.features.length} 2022 Prabhags, ${PMC_MAP_PROJECTS.length} projects, ${geocodedMarkers.length} OSM-geocoded pins, Sinhagad Flyover 100% Completed, and null preservation.`
+);
+
+// 19. Departmental Budgets Ledger & Project Search Filter
+const projectSearchRes = filterMapProjects(PMC_MAP_PROJECTS, {
+  financialYear: 'All',
+  department: 'All',
+  category: 'All',
+  status: 'All',
+  searchQuery: '',
+  projectQuery: 'Sinhagad'
+});
+const fy2324Budget = PMC_INITIAL_DEPARTMENT_BUDGETS.find(
+  (b) => b.id === 'PMC_202324_BE_ACT'
+);
+assert(
+  '19. Departmental BE/RE/Actuals Separation & Project Name Filter',
+  PMC_INITIAL_DEPARTMENT_BUDGETS.length >= 16 &&
+    fy2324Budget?.budgetEstimateCrores === 9515.0 &&
+    fy2324Budget?.revisedEstimateCrores === 9200.0 &&
+    fy2324Budget?.actualExpenditureCrores === 8125.6 &&
+    projectSearchRes.some((p) => p.projectCode === 'PMC-RD-SINHAGAD'),
+  `Verified ${PMC_INITIAL_DEPARTMENT_BUDGETS.length} structured BE/RE/Actuals ledger rows and projectQuery search filter.`
+);
+
+// 20. SQLite Database Seeding & CSV Duplicate Detection Engine
+async function runAsyncDbAudit() {
+  const bootstrap = getMapBootstrapPayload();
+  const sampleCsv = Buffer.from(
+    [
+      'project_code,project_name,department,category,ward_name,estimated_cost,approved_funding,actual_expenditure,status,financial_year,source_url',
+      'PMC-RD-SINHAGAD,Sinhagad Road Multi-Level Flyover (Rajaram Bridge to Fun Time Theatre),Road Department,Roads and Transportation,Sinhagad Road,118.37,134.70,N/A,Completed,2025-26,https://www.pmc.gov.in/',
+      'PMC-TEST-UNIQUE-999,Katraj Lake Stormwater Desilting Audit,Drainage and Sewerage Department,Drainage and Sewage,Dhankawadi,12.50,12.50,Data unavailable,Upcoming,2026-27,https://www.pmc.gov.in/'
+    ].join('\n'),
+    'utf8'
+  );
+  const preview = await parseUploadedBuffer(sampleCsv, 'audit-check.csv', 'projects');
+
+  assert(
+    '20. SQLite Relational DB & CSV Duplicate/Null Parser',
+    bootstrap.dbStats.wardsCount === 15 &&
+      bootstrap.dbStats.projectsCount >= 39 &&
+      bootstrap.dbStats.markersCount >= 23 &&
+      bootstrap.dbStats.departmentBudgetsCount >= 16 &&
+      preview.rowsParsed === 2 &&
+      preview.duplicateCount + preview.updateCount === 1 &&
+      preview.newCount === 1 &&
+      preview.projects[1]?.actualExpenditureCrores === null,
+    `SQLite pmc_civic.db ready (${bootstrap.dbStats.wardsCount} wards, ${bootstrap.dbStats.projectsCount} projects, ${bootstrap.dbStats.departmentBudgetsCount} budgets); CSV preview verified new/duplicate detection & null preservation.`
+  );
+
+  console.log('\n=================================================================');
+  const passedCount = results.filter((r) => r.passed).length;
+  const totalCount = results.length;
+  console.log(`TOTAL AUDIT TEST SUITE: ${passedCount}/${totalCount} TESTS PASSED.`);
+  if (passedCount === totalCount) {
+    console.log('🎉 ALL AUDIT & RECONCILIATION ASSERTIONS CONFIRMED.');
+  } else {
+    process.exit(1);
+  }
 }
+
+runAsyncDbAudit().catch((err) => {
+  console.error('Audit script failed:', err);
+  process.exit(1);
+});

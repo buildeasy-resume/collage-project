@@ -96,6 +96,11 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                 </button>
               </li>
               <li>
+                <button type="button" onClick={() => go('explore-pune')} className="hover:text-white transition-colors cursor-pointer">
+                  Explore Pune Interactive Map
+                </button>
+              </li>
+              <li>
                 <button type="button" onClick={() => go('wards')} className="hover:text-white transition-colors cursor-pointer">
                   Ward Explorer (15 · 41)
                 </button>

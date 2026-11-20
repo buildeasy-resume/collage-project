@@ -20,7 +20,8 @@ import {
   MessageSquarePlus,
   Trees,
   Building2,
-  MapPin
+  MapPin,
+  Compass
 } from 'lucide-react';
 
 interface HomePageProps {
@@ -108,6 +109,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
       title: 'Department Expenditure',
       subtitle: '20 PMC Municipal Departments',
       targetPage: 'departments'
+    },
+    {
+      icon: Compass,
+      title: 'Explore Pune Map',
+      subtitle: 'Interactive Ward & Prabhag Municipal Project Map',
+      targetPage: 'explore-pune'
     },
     {
       icon: MapPinned,
@@ -211,6 +218,15 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
               >
                 <Building2 className="w-3.5 h-3.5 text-[#E9A23B]" />
                 <span>Pune Municipal Corporation (PMC)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate('explore-pune')}
+                className="h-9 px-4 rounded-[6px] bg-white border border-[#133429]/25 text-[#133429] hover:bg-[#E8F2EE] text-xs font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer shadow-xs"
+              >
+                <Compass className="w-3.5 h-3.5 text-[#0E7C74]" />
+                <span>Interactive Pune Ward Map</span>
               </button>
 
               <button

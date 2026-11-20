@@ -28,6 +28,13 @@ export const NAV_GROUPS: NavGroupConfig[] = [
     defaultPage: 'projects',
     items: [
       {
+        key: 'explore-pune',
+        label: 'Explore Pune Map',
+        description: 'Interactive PMC ward & 2022 Prabhag project map',
+        path: '/explore/pune-map',
+        group: 'explore'
+      },
+      {
         key: 'projects',
         label: 'Public Projects',
         description: 'Sanctioned capital works, flyovers, riverfront & water schemes',
@@ -198,6 +205,9 @@ const ALIAS_TO_CANONICAL: Record<string, string> = {
   home: 'home',
   overview: 'finances',
   spending: 'records',
+  'explore-pune': 'explore-pune',
+  'pune-map': 'explore-pune',
+  map: 'explore-pune',
   'loni-kalbhor': 'loni-kalbhor',
   lonikalbhor: 'loni-kalbhor'
 };

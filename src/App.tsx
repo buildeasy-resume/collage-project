@@ -26,6 +26,7 @@ import { SourcesAuditPage } from './pages/SourcesAuditPage';
 import { CivicComplaintsPage } from './pages/CivicComplaintsPage';
 import { CitizenFeedbackPage } from './pages/CitizenFeedbackPage';
 import { LoniKalbhorPage } from './pages/LoniKalbhorPage';
+import { ExplorePuneMapPage } from './pages/ExplorePuneMapPage';
 import { dataProvider } from './services/dataProvider';
 import {
   getBreadcrumbsForPage,
@@ -35,7 +36,7 @@ import {
   resolvePageFromPathname
 } from './utils/navigation';
 
-const EXPLORE_PAGES = ['projects', 'wards', 'tenders', 'infrastructure', 'loni-kalbhor'];
+const EXPLORE_PAGES = ['explore-pune', 'projects', 'wards', 'tenders', 'infrastructure', 'loni-kalbhor'];
 const FINANCE_PAGES = ['finances', 'budget', 'revenue-expenditure', 'departments', 'records'];
 const CIVIC_SERVICES_PAGES = [
   'water-sanitation',
@@ -140,6 +141,7 @@ export function App() {
               breadcrumbs={breadcrumbs}
               onNavigate={navigateTo}
               tabs={[
+                { key: 'explore-pune', label: 'Explore Pune Map' },
                 { key: 'projects', label: 'Public Projects (8)' },
                 { key: 'wards', label: 'Ward Explorer (15 · 41)' },
                 { key: 'tenders', label: 'Tenders & Contracts (5)' },
@@ -150,6 +152,7 @@ export function App() {
               onSelectTab={navigateTo}
             />
             <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
+              {activePage === 'explore-pune' && <ExplorePuneMapPage />}
               {activePage === 'projects' && (
                 <ProjectsPage onSelectProject={setSelectedProject} />
               )}
