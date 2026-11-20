@@ -1,5 +1,11 @@
 export type BoundaryLayerMode = 'admin-wards' | 'prabhags-2022';
 
+export type JurisdictionType =
+  | 'Pune Municipal Corporation'
+  | 'Loni Kalbhor Gram Panchayat';
+
+export type JurisdictionFilterScope = 'All' | 'PMC' | 'Loni Kalbhor';
+
 export type MapProjectCategory =
   | 'Roads and Transportation'
   | 'Water Supply'
@@ -19,6 +25,36 @@ export type VerificationCategory =
   | 'Secondary source'
   | 'Awaiting verification'
   | 'Data unavailable';
+
+export type MapPublicAssetCategory =
+  | 'Water Supply & WTP'
+  | 'Sewage & Sanitation'
+  | 'Healthcare & Clinics'
+  | 'Fire & Emergency'
+  | 'Education & Civic Admin'
+  | 'Parks, Markets & Culture'
+  | 'Transport & Railway';
+
+export interface MapPublicAsset {
+  assetId: string;
+  name: string;
+  category: MapPublicAssetCategory;
+  jurisdiction: JurisdictionType;
+  authority: string;
+  departmentOrAgency: string;
+  adminWardGeoNames: string[];
+  prabhagNumbers2022: number[];
+  locationLabel: string;
+  latitude: number | null;
+  longitude: number | null;
+  coordinateSource: string | null;
+  capacityOrMetric: string;
+  status: string;
+  details: string;
+  sourceTitle: string;
+  sourceUrl: string;
+  verificationLabel: string;
+}
 
 export interface PuneWardGeoMeta {
   geoFeatureName: string; // Exact properties.name in pmc-admin-wards-2017.geojson
@@ -51,9 +87,10 @@ export interface MapMunicipalProject {
   projectCode: string;
   projectName: string;
   officialName: string;
+  jurisdiction?: JurisdictionType;
   department: string;
   category: MapProjectCategory;
-  wardId: string | null; // Primary PMC_WARDS.ward_id for ward-specific works; null for multi-ward/city-wide
+  wardId: string | null; // Primary PMC_WARDS.ward_id for ward-specific works; null for multi-ward/city-wide/GP
   estimatedCostCrores: number | null;
   approvedFundingCrores: number | null;
   actualExpenditureCrores: number | null;
@@ -62,11 +99,11 @@ export interface MapMunicipalProject {
   startDate: string | null;
   expectedCompletionDate: string | null;
   financialYear: string; // e.g. '2024-25' | '2025-26' | '2026-27'
-  wardScope: 'Ward-Specific' | 'Multi-Ward Corridor' | 'City-Wide';
-  adminWardGeoNames: string[]; // Matches properties.name in pmc-admin-wards-2017.geojson
+  wardScope: 'Ward-Specific' | 'Multi-Ward Corridor' | 'City-Wide' | 'Gram Panchayat';
+  adminWardGeoNames: string[]; // Matches properties.name in pmc-admin-wards-2017.geojson or 'LONI_KALBHOR_GP'
   prabhagNumbers2022: number[]; // Matches properties.wardnum in pmc-prabhags-2022.geojson
   locationSummary: string;
-  latitude: number | null; // Verified OSM coordinates only; null if unverified/dispersed
+  latitude: number | null; // Verified coordinates only; null if unverified/dispersed
   longitude: number | null;
   coordinateSource?: string | null;
   description: string;
@@ -81,6 +118,7 @@ export interface MapMunicipalProject {
 
 export interface PmcDepartmentBudgetRecord {
   id: string;
+  jurisdiction?: JurisdictionType;
   departmentId: string;
   departmentName: string;
   budgetHead: string;
@@ -120,6 +158,7 @@ export interface ProjectRevisionRecord {
 }
 
 export interface MapFiltersState {
+  jurisdiction?: JurisdictionFilterScope;
   financialYear: string;
   department: string;
   category: string;
@@ -129,14 +168,16 @@ export interface MapFiltersState {
 }
 
 export interface SelectedMapArea {
-  layerMode: BoundaryLayerMode;
-  featureKey: string; // properties.name for admin-wards, String(properties.wardnum) for prabhags-2022
+  layerMode: BoundaryLayerMode | 'gram-panchayat';
+  jurisdiction: JurisdictionType;
+  featureKey: string; // properties.name for admin-wards, String(properties.wardnum) for prabhags-2022, or 'LONI_KALBHOR_GP'
   title: string;
   subtitle: string;
   officialIdLabel: string;
   zone: string;
   localities: string[];
   pmcWardOfficeId?: string;
+  isLoniKalbhor?: boolean;
   boundaryNote: string;
   officialBoundarySourceUrl: string;
 }

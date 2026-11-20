@@ -144,7 +144,12 @@ export const WardProjectDetailModal: React.FC<WardProjectDetailModalProps> = ({
               <dt className="text-[#5A6560]">Executing Authority &amp; Department</dt>
               <dd className="font-semibold text-[#133429] mt-0.5 inline-flex items-center gap-1.5">
                 <Building2 className="w-3.5 h-3.5 text-[#0E7C74] shrink-0" />
-                <span>PMC · {project.department}</span>
+                <span>
+                  {project.jurisdiction === 'Loni Kalbhor Gram Panchayat'
+                    ? 'Loni Kalbhor GP (Outside PMC)'
+                    : 'PMC'}{' '}
+                  · {project.department}
+                </span>
               </dd>
             </div>
             <div>
@@ -251,7 +256,11 @@ export const WardProjectDetailModal: React.FC<WardProjectDetailModalProps> = ({
               rel="noopener noreferrer"
               className="h-9 px-4 rounded-[6px] bg-[#133429] hover:bg-[#0E2920] text-[#FAF8F3] font-semibold inline-flex items-center justify-center gap-1.5 shrink-0"
             >
-              <span>Open Official PMC Source</span>
+              <span>
+                {project.jurisdiction === 'Loni Kalbhor Gram Panchayat'
+                  ? 'Open Official Govt Source'
+                  : 'Open Official PMC Source'}
+              </span>
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </div>

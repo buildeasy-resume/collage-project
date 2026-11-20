@@ -43,13 +43,25 @@ import {
   resolvePageFromPathname
 } from '../src/utils/navigation';
 import {
+  ALL_INITIAL_DEPARTMENT_BUDGETS,
+  ALL_MAP_PROJECTS,
+  LONI_KALBHOR_GEO_KEY,
+  LONI_KALBHOR_MAP_BUDGETS,
+  LONI_KALBHOR_MAP_PROJECTS,
   PMC_ADMIN_WARD_GEO_META,
   PMC_INITIAL_DEPARTMENT_BUDGETS,
   PMC_MAP_PROJECTS,
+  buildLoniKalbhorSelectedArea,
   computeAreaStats,
   filterMapProjects,
   getProjectsForArea
 } from '../src/data/puneMapData';
+import {
+  ALL_PUBLIC_MAP_ASSETS,
+  LONI_KALBHOR_MAP_ASSETS,
+  PMC_PUBLIC_MAP_ASSETS,
+  getPublicAssetsForArea
+} from '../src/data/punePublicMapAssets';
 import { getMapBootstrapPayload } from '../server/pmcDatabase.ts';
 import { parseUploadedBuffer } from '../server/pmcIngestion.ts';
 
@@ -575,14 +587,66 @@ async function runAsyncDbAudit() {
   assert(
     '20. SQLite Relational DB & CSV Duplicate/Null Parser',
     bootstrap.dbStats.wardsCount === 15 &&
-      bootstrap.dbStats.projectsCount >= 39 &&
-      bootstrap.dbStats.markersCount >= 23 &&
-      bootstrap.dbStats.departmentBudgetsCount >= 16 &&
+      bootstrap.dbStats.projectsCount >= 44 &&
+      bootstrap.dbStats.markersCount >= 25 &&
+      bootstrap.dbStats.departmentBudgetsCount >= 21 &&
+      bootstrap.dbStats.publicAssetsCount >= 25 &&
       preview.rowsParsed === 2 &&
       preview.duplicateCount + preview.updateCount === 1 &&
       preview.newCount === 1 &&
       preview.projects[1]?.actualExpenditureCrores === null,
-    `SQLite pmc_civic.db ready (${bootstrap.dbStats.wardsCount} wards, ${bootstrap.dbStats.projectsCount} projects, ${bootstrap.dbStats.departmentBudgetsCount} budgets); CSV preview verified new/duplicate detection & null preservation.`
+    `SQLite pmc_civic.db ready (${bootstrap.dbStats.wardsCount} wards, ${bootstrap.dbStats.projectsCount} projects, ${bootstrap.dbStats.departmentBudgetsCount} budgets, ${bootstrap.dbStats.publicAssetsCount} public assets); CSV preview verified.`
+  );
+
+  // 21. Loni Kalbhor Map Zone, Jurisdictional Separation & Public Assets Coverage
+  const loniArea = buildLoniKalbhorSelectedArea();
+  const loniMapProjs = getProjectsForArea(ALL_MAP_PROJECTS, 'gram-panchayat', LONI_KALBHOR_GEO_KEY);
+  const loniStats = computeAreaStats(loniMapProjs);
+  const loniAreaAssets = getPublicAssetsForArea(
+    ALL_PUBLIC_MAP_ASSETS,
+    'gram-panchayat',
+    LONI_KALBHOR_GEO_KEY
+  );
+  const loniFilterOnly = filterMapProjects(ALL_MAP_PROJECTS, {
+    jurisdiction: 'Loni Kalbhor',
+    financialYear: 'All',
+    department: 'All',
+    category: 'All',
+    status: 'All',
+    searchQuery: '',
+    projectQuery: ''
+  });
+  const pmcFilterOnly = filterMapProjects(ALL_MAP_PROJECTS, {
+    jurisdiction: 'PMC',
+    financialYear: 'All',
+    department: 'All',
+    category: 'All',
+    status: 'All',
+    searchQuery: '',
+    projectQuery: ''
+  });
+
+  assert(
+    '21. Loni Kalbhor Map Zone & All Public Assets Integration',
+    loniArea.isLoniKalbhor === true &&
+      loniArea.jurisdiction === 'Loni Kalbhor Gram Panchayat' &&
+      LONI_KALBHOR_MAP_PROJECTS.length === 3 &&
+      LONI_KALBHOR_MAP_BUDGETS.length === 5 &&
+      ALL_MAP_PROJECTS.length === PMC_MAP_PROJECTS.length + LONI_KALBHOR_MAP_PROJECTS.length &&
+      ALL_INITIAL_DEPARTMENT_BUDGETS.length ===
+        PMC_INITIAL_DEPARTMENT_BUDGETS.length + LONI_KALBHOR_MAP_BUDGETS.length &&
+      PMC_PUBLIC_MAP_ASSETS.length === 15 &&
+      LONI_KALBHOR_MAP_ASSETS.length === 10 &&
+      ALL_PUBLIC_MAP_ASSETS.length === 25 &&
+      loniMapProjs.length === 3 &&
+      loniStats.totalEstimatedCostCrores === 43.35 &&
+      loniStats.totalApprovedFundingCrores === 33.05 &&
+      loniStats.totalActualExpenditureCrores === 29.12 &&
+      loniStats.remainingAllocationCrores === 3.93 &&
+      loniAreaAssets.length === 10 &&
+      loniFilterOnly.length === 3 &&
+      pmcFilterOnly.length === PMC_MAP_PROJECTS.length,
+    `Loni Kalbhor GP mapped (${loniMapProjs.length} projects, ₹${loniStats.totalEstimatedCostCrores} Cr sanctioned, ${loniAreaAssets.length} GP facilities/water units) strictly separated from ${pmcFilterOnly.length} PMC projects & ${PMC_PUBLIC_MAP_ASSETS.length} PMC civic assets.`
   );
 
   console.log('\n=================================================================');

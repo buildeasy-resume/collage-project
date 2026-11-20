@@ -10,6 +10,19 @@ import {
   PuneWardGeoMeta,
   SelectedMapArea
 } from '../types/puneMap';
+import { LONI_KALBHOR_PROFILE } from './loniKalbhor/villageProfile';
+import { LONI_KALBHOR_PROJECTS } from './loniKalbhor/developmentProjects';
+import { LONI_KALBHOR_FINANCE_RECORDS } from './loniKalbhor/localFinance';
+import { LONI_KALBHOR_SOURCES } from './loniKalbhor/sources';
+
+export const LONI_KALBHOR_GEO_KEY = 'LONI_KALBHOR_GP';
+export const LONI_KALBHOR_OSM_CENTER = {
+  lat: 18.4883530,
+  lng: 74.0221934,
+  source: 'OpenStreetMap Nominatim (Loni Kalbhor, Haveli Subdistrict, node/1645591501)'
+};
+// sqrt(24.6 sq.km / pi) * 1000 ≈ 2798 m reference radius for documented 24.6 sq.km GP area
+export const LONI_KALBHOR_REFERENCE_RADIUS_METERS = 2798;
 
 export const MAP_PROJECT_CATEGORIES: MapProjectCategory[] = [
   'Roads and Transportation',
@@ -1965,12 +1978,135 @@ export const PMC_INITIAL_DEPARTMENT_BUDGETS: PmcDepartmentBudgetRecord[] = [
   }
 ];
 
+const LK_SOURCES_BY_ID = new Map(LONI_KALBHOR_SOURCES.map((s) => [s.id, s]));
+
+/**
+ * Loni Kalbhor Gram Panchayat / Haveli Taluka development projects kept strictly separate
+ * from PMC_MAP_PROJECTS for jurisdictional accuracy.
+ */
+export const LONI_KALBHOR_MAP_PROJECTS: MapMunicipalProject[] = LONI_KALBHOR_PROJECTS.map((p) => {
+  const src = LK_SOURCES_BY_ID.get(p.sourceId);
+  const category: MapProjectCategory =
+    p.id === 'LK_PRJ_001'
+      ? 'Water Supply'
+      : p.id === 'LK_PRJ_002'
+      ? 'Waste Management'
+      : 'Roads and Transportation';
+
+  const coords =
+    p.id === 'LK_PRJ_001'
+      ? {
+          lat: 18.4883530,
+          lng: 74.0221934,
+          source: 'OpenStreetMap Nominatim (Loni Kalbhor Habitation Core, node/1645591501)'
+        }
+      : p.id === 'LK_PRJ_003'
+      ? {
+          lat: 18.4853609,
+          lng: 74.0267096,
+          source: 'OpenStreetMap Nominatim (Solapur Road / NH 65, Loni Kalbhor)'
+        }
+      : {
+          lat: null,
+          lng: null,
+          source: null
+        };
+
+  return {
+    projectId: p.id.toLowerCase(),
+    projectCode: p.id,
+    projectName: p.projectName,
+    officialName: `${p.projectName} (${p.scheme})`,
+    jurisdiction: 'Loni Kalbhor Gram Panchayat',
+    department: p.implementingAgency,
+    category,
+    wardId: null,
+    estimatedCostCrores: p.sanctionedCostCrores,
+    approvedFundingCrores: p.fundsReleasedCrores,
+    actualExpenditureCrores: p.actualExpenditureCrores,
+    status: p.status === 'Completed' ? 'Completed' : 'Ongoing',
+    physicalProgressPercent: p.physicalProgressPct,
+    startDate: null,
+    expectedCompletionDate: null,
+    financialYear: p.reportingPeriod.replace(/^FY\s+/i, ''),
+    wardScope: 'Gram Panchayat',
+    adminWardGeoNames: [LONI_KALBHOR_GEO_KEY],
+    prabhagNumbers2022: [],
+    locationSummary: `${p.location} (Outside PMC Limits · Haveli Taluka)`,
+    latitude: coords.lat,
+    longitude: coords.lng,
+    coordinateSource: coords.source,
+    description: `${p.scheme} implemented by ${p.implementingAgency} in ${p.location}. Governed outside Pune Municipal Corporation (PMC) under Loni Kalbhor Gram Panchayat / Haveli Taluka.`,
+    capacityOrScale: `${p.physicalProgressPct}% physical progress (${p.reportingPeriod})`,
+    sourceDocument: src?.documentTitle || 'Loni Kalbhor Gram Panchayat / ZP Records',
+    sourceUrl: src?.officialUrl || 'https://ejalshakti.gov.in/jjm/',
+    sourcePageOrTable: src?.pageOrTableRef || p.scheme,
+    evidenceNote: `Sanctioned ₹${p.sanctionedCostCrores.toFixed(2)} Cr · Funds Released ₹${p.fundsReleasedCrores.toFixed(2)} Cr · Actual Expenditure ₹${p.actualExpenditureCrores.toFixed(2)} Cr. Strictly separate from PMC accounts.`,
+    lastUpdated: INITIAL_REPORTING_DATE,
+    verificationStatus:
+      src?.verificationStatus === 'Verified Official'
+        ? 'Official source verified'
+        : 'Government document available'
+  };
+});
+
+export const LONI_KALBHOR_MAP_BUDGETS: PmcDepartmentBudgetRecord[] = LONI_KALBHOR_FINANCE_RECORDS.map(
+  (f) => {
+    const src = LK_SOURCES_BY_ID.get(f.sourceId);
+    const isBudgetEstimate = f.status === 'Budget Estimate';
+    const isReleased = f.status === 'Funds Released';
+    const isAudited = f.status === 'Audited Actual';
+    return {
+      id: f.id,
+      jurisdiction: 'Loni Kalbhor Gram Panchayat',
+      departmentId: 'dept-loni-kalbhor-gp',
+      departmentName: 'Loni Kalbhor Gram Panchayat (Outside PMC)',
+      budgetHead: `${f.category} (${f.status})`,
+      financialYear: f.financialYear,
+      budgetEstimateCrores: isBudgetEstimate || isReleased ? f.amountCrores : null,
+      revisedEstimateCrores: null,
+      actualExpenditureCrores: isAudited ? f.amountCrores : null,
+      sourceUrl: src?.officialUrl || 'https://egramswaraj.gov.in/',
+      documentTitle: f.documentTitle,
+      verificationStatus:
+        src?.verificationStatus === 'Official but Historical'
+          ? 'Government document available'
+          : 'Official source verified',
+      notes: `Printed value: ${f.amountAsPrinted} · Haveli Taluka / Pune Zilla Parishad Gram Panchayat ledger (excluded from PMC aggregates).`,
+      lastUpdated: INITIAL_REPORTING_DATE
+    };
+  }
+);
+
+export const ALL_MAP_PROJECTS: MapMunicipalProject[] = [
+  ...PMC_MAP_PROJECTS.map((p) => ({
+    ...p,
+    jurisdiction: 'Pune Municipal Corporation' as const
+  })),
+  ...LONI_KALBHOR_MAP_PROJECTS
+];
+
+export const ALL_INITIAL_DEPARTMENT_BUDGETS: PmcDepartmentBudgetRecord[] = [
+  ...PMC_INITIAL_DEPARTMENT_BUDGETS.map((b) => ({
+    ...b,
+    jurisdiction: 'Pune Municipal Corporation' as const
+  })),
+  ...LONI_KALBHOR_MAP_BUDGETS
+];
+
 export function filterMapProjects(
   projects: MapMunicipalProject[],
   filters: MapFiltersState
 ): MapMunicipalProject[] {
   const projQuery = (filters.projectQuery || '').trim().toLowerCase();
   return projects.filter((p) => {
+    const jur = p.jurisdiction ?? 'Pune Municipal Corporation';
+    if (filters.jurisdiction === 'PMC' && jur !== 'Pune Municipal Corporation') {
+      return false;
+    }
+    if (filters.jurisdiction === 'Loni Kalbhor' && jur !== 'Loni Kalbhor Gram Panchayat') {
+      return false;
+    }
     if (filters.financialYear !== 'All' && p.financialYear !== filters.financialYear) {
       return false;
     }
@@ -1993,9 +2129,12 @@ export function filterMapProjects(
 
 export function getProjectsForArea(
   projects: MapMunicipalProject[],
-  layerMode: BoundaryLayerMode,
+  layerMode: BoundaryLayerMode | 'gram-panchayat',
   featureKey: string
 ): MapMunicipalProject[] {
+  if (featureKey === LONI_KALBHOR_GEO_KEY || layerMode === 'gram-panchayat') {
+    return projects.filter((p) => p.adminWardGeoNames.includes(LONI_KALBHOR_GEO_KEY));
+  }
   if (layerMode === 'admin-wards') {
     return projects.filter((p) => p.adminWardGeoNames.includes(featureKey));
   }
@@ -2020,7 +2159,9 @@ export function computeAreaStats(areaProjects: MapMunicipalProject[]): AreaProje
   const upcomingCount = areaProjects.filter((p) => p.status === 'Upcoming').length;
   const delayedCount = areaProjects.filter((p) => p.status === 'Delayed').length;
 
-  const wardSpecificProjects = areaProjects.filter((p) => p.wardScope === 'Ward-Specific');
+  const wardSpecificProjects = areaProjects.filter(
+    (p) => p.wardScope === 'Ward-Specific' || p.wardScope === 'Gram Panchayat'
+  );
   const multiWardProjects = areaProjects.filter((p) => p.wardScope === 'Multi-Ward Corridor');
 
   const estValues = areaProjects
@@ -2086,16 +2227,38 @@ export function getAdminWardMeta(geoFeatureName: string): PuneWardGeoMeta | unde
   return PMC_ADMIN_WARD_GEO_META.find((w) => w.geoFeatureName === geoFeatureName);
 }
 
+export function buildLoniKalbhorSelectedArea(): SelectedMapArea {
+  return {
+    layerMode: 'gram-panchayat',
+    jurisdiction: 'Loni Kalbhor Gram Panchayat',
+    featureKey: LONI_KALBHOR_GEO_KEY,
+    title: `${LONI_KALBHOR_PROFILE.villageNameEnglish} (${LONI_KALBHOR_PROFILE.villageNameMarathi})`,
+    subtitle: 'Loni Kalbhor Gram Panchayat · Haveli Taluka (Outside PMC Limits)',
+    officialIdLabel: `Census Code ${LONI_KALBHOR_PROFILE.censusCode} · LGD Code ${LONI_KALBHOR_PROFILE.lgdCode}`,
+    zone: 'Haveli Panchayat Samiti & Pune Zilla Parishad',
+    localities: ['Bazaar Road', 'Kadamwak Wasti', 'Rajbaug', 'Railway Station', 'NH 65 Corridor'],
+    isLoniKalbhor: true,
+    boundaryNote:
+      'Shown as a 24.6 sq.km reference jurisdiction zone centered on OpenStreetMap Loni Kalbhor node (18.4884°N, 74.0222°E); official Gram Panchayat polygon shapefile is not published in DataMeet/OSM.',
+    officialBoundarySourceUrl: 'https://lgdirectory.gov.in/'
+  };
+}
+
 export function buildSelectedAreaFromFeature(
-  layerMode: BoundaryLayerMode,
+  layerMode: BoundaryLayerMode | 'gram-panchayat',
   properties: Record<string, unknown>
 ): SelectedMapArea {
+  if (layerMode === 'gram-panchayat' || properties.name === LONI_KALBHOR_GEO_KEY) {
+    return buildLoniKalbhorSelectedArea();
+  }
+
   if (layerMode === 'admin-wards') {
     const featureName = String(properties.name ?? '');
     const meta = getAdminWardMeta(featureName);
     if (meta) {
       return {
         layerMode: 'admin-wards',
+        jurisdiction: 'Pune Municipal Corporation',
         featureKey: featureName,
         title: meta.displayName,
         subtitle: `PMC Administrative Ward Office · ${meta.prabhagCoverage2022}`,
@@ -2109,6 +2272,7 @@ export function buildSelectedAreaFromFeature(
     }
     return {
       layerMode: 'admin-wards',
+      jurisdiction: 'Pune Municipal Corporation',
       featureKey: featureName,
       title: featureName || 'PMC Administrative Ward',
       subtitle: 'Pune Municipal Corporation Jurisdiction',
@@ -2132,6 +2296,7 @@ export function buildSelectedAreaFromFeature(
 
   return {
     layerMode: 'prabhags-2022',
+    jurisdiction: 'Pune Municipal Corporation',
     featureKey: String(wardnum),
     title: name2,
     subtitle: parentMeta

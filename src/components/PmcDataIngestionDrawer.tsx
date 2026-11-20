@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   ImportHistoryRecord,
   MapMunicipalProject,
+  MapPublicAsset,
   PmcDepartmentBudgetRecord
 } from '../types/puneMap';
 import { formatCroresPrecise } from '../utils/formatters';
@@ -20,6 +21,7 @@ import {
 export interface BootstrapPayload {
   projects: MapMunicipalProject[];
   departmentBudgets: PmcDepartmentBudgetRecord[];
+  publicAssets?: MapPublicAsset[];
   importHistory: ImportHistoryRecord[];
   lastUpdated: string;
   dbStats: {
@@ -27,6 +29,7 @@ export interface BootstrapPayload {
     projectsCount: number;
     markersCount: number;
     departmentBudgetsCount: number;
+    publicAssetsCount?: number;
   };
 }
 
@@ -190,7 +193,7 @@ export const PmcDataIngestionDrawer: React.FC<PmcDataIngestionDrawerProps> = ({
               Manage Official PMC Sync &amp; Data Imports
             </h2>
             <p className="text-xs text-[#5A6560]">
-              Active DB: {dbStats.wardsCount} Wards · {dbStats.projectsCount} Projects ({dbStats.markersCount} OSM pins) · {dbStats.departmentBudgetsCount} Departmental Budgets
+              Active DB: {dbStats.wardsCount} PMC Wards + Loni Kalbhor GP · {dbStats.projectsCount} Projects ({dbStats.markersCount} OSM pins) · {dbStats.publicAssetsCount ?? 0} Public Assets · {dbStats.departmentBudgetsCount} Budgets
             </p>
           </div>
           <button

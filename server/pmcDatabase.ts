@@ -9,12 +9,13 @@ import type {
   ProjectRevisionRecord
 } from '../src/types/puneMap.ts';
 import {
+  ALL_INITIAL_DEPARTMENT_BUDGETS,
+  ALL_MAP_PROJECTS,
   BOUNDARY_SOURCE_METADATA,
   INITIAL_REPORTING_DATE,
-  PMC_ADMIN_WARD_GEO_META,
-  PMC_INITIAL_DEPARTMENT_BUDGETS,
-  PMC_MAP_PROJECTS
+  PMC_ADMIN_WARD_GEO_META
 } from '../src/data/puneMapData.ts';
+import { ALL_PUBLIC_MAP_ASSETS } from '../src/data/punePublicMapAssets.ts';
 
 let dbInstance: DatabaseSync | null = null;
 
@@ -121,9 +122,19 @@ export function getDatabase(): DatabaseSync {
     );
   `);
 
+  ensureColumn(db, 'PMC_PROJECTS', 'jurisdiction', "TEXT NOT NULL DEFAULT 'Pune Municipal Corporation'");
+  ensureColumn(db, 'PMC_DEPARTMENT_BUDGETS', 'jurisdiction', "TEXT NOT NULL DEFAULT 'Pune Municipal Corporation'");
+
   seedInitialData(db);
   dbInstance = db;
   return db;
+}
+
+function ensureColumn(db: DatabaseSync, tableName: string, columnName: string, definition: string): void {
+  const cols = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>;
+  if (!cols.some((c) => c.name === columnName)) {
+    db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition};`);
+  }
 }
 
 function seedInitialData(db: DatabaseSync): void {
@@ -169,23 +180,24 @@ function seedInitialData(db: DatabaseSync): void {
 
   const insertProj = db.prepare(`
     INSERT OR IGNORE INTO PMC_PROJECTS (
-      project_id, project_code, project_name, official_name, department, category,
+      project_id, project_code, project_name, official_name, jurisdiction, department, category,
       ward_id, ward_scope, admin_ward_geo_names_json, prabhag_numbers_json,
       location, latitude, longitude, coordinate_source, description, capacity_or_scale,
       estimated_cost, approved_funding, actual_expenditure, project_status,
       physical_progress, start_date, expected_completion_date, financial_year,
       source_url, source_document, source_page_or_table, evidence_note,
       last_updated, verification_status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   let newlySeededProjects = 0;
-  for (const p of PMC_MAP_PROJECTS) {
+  for (const p of ALL_MAP_PROJECTS) {
     const res = insertProj.run(
       p.projectId,
       p.projectCode,
       p.projectName,
       p.officialName,
+      p.jurisdiction ?? 'Pune Municipal Corporation',
       p.department,
       p.category,
       p.wardId,
@@ -218,16 +230,17 @@ function seedInitialData(db: DatabaseSync): void {
 
   const insertBudget = db.prepare(`
     INSERT OR IGNORE INTO PMC_DEPARTMENT_BUDGETS (
-      id, department_id, department_name, budget_head, financial_year,
+      id, jurisdiction, department_id, department_name, budget_head, financial_year,
       budget_estimate, revised_estimate, actual_expenditure,
       source_url, document_title, verification_status, notes, last_updated
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   let newlySeededBudgets = 0;
-  for (const b of PMC_INITIAL_DEPARTMENT_BUDGETS) {
+  for (const b of ALL_INITIAL_DEPARTMENT_BUDGETS) {
     const res = insertBudget.run(
       b.id,
+      b.jurisdiction ?? 'Pune Municipal Corporation',
       b.departmentId,
       b.departmentName,
       b.budgetHead,
@@ -307,6 +320,7 @@ export function listProjectsFromDb(): MapMunicipalProject[] {
     projectCode: String(r.project_code),
     projectName: String(r.project_name),
     officialName: String(r.official_name),
+    jurisdiction: (r.jurisdiction ? String(r.jurisdiction) : 'Pune Municipal Corporation') as MapMunicipalProject['jurisdiction'],
     department: String(r.department),
     category: String(r.category) as MapMunicipalProject['category'],
     wardId: r.ward_id ? String(r.ward_id) : null,
@@ -344,6 +358,7 @@ export function listDepartmentBudgetsFromDb(): PmcDepartmentBudgetRecord[] {
 
   return rows.map((r) => ({
     id: String(r.id),
+    jurisdiction: (r.jurisdiction ? String(r.jurisdiction) : 'Pune Municipal Corporation') as PmcDepartmentBudgetRecord['jurisdiction'],
     departmentId: String(r.department_id),
     departmentName: String(r.department_name),
     budgetHead: String(r.budget_head),
@@ -717,13 +732,15 @@ export function getMapBootstrapPayload() {
     wards,
     projects,
     departmentBudgets,
+    publicAssets: ALL_PUBLIC_MAP_ASSETS,
     importHistory,
     lastUpdated,
     dbStats: {
       wardsCount: wards.length,
       projectsCount: projects.length,
       markersCount: projects.filter((p) => p.latitude !== null && p.longitude !== null).length,
-      departmentBudgetsCount: departmentBudgets.length
+      departmentBudgetsCount: departmentBudgets.length,
+      publicAssetsCount: ALL_PUBLIC_MAP_ASSETS.length
     }
   };
 }
